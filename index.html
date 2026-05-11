@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>술킷 ACCT 프로 계산기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-slate-100 flex flex-col items-center justify-between min-h-screen p-4 md:p-8">
+    
+    <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-2xl w-full max-w-md border border-slate-200 h-fit mb-10">
+        
+        <div class="flex flex-col items-center mb-8 border-b border-slate-100 pb-6 text-center">
+            <img src="https://i.imgur.com/u0f5bX8.png" alt="술킷 로고" class="h-20 mb-4">
+            <div>
+                <h1 class="text-2xl font-black text-indigo-900 tracking-tight">ACCT PRO</h1>
+                <p class="text-[11px] text-indigo-700 font-bold uppercase tracking-widest mt-1">SULKIT 가수 계산기</p>
+            </div>
+        </div>
+        
+        <div class="space-y-5">
+            <div>
+                <label class="block text-xs font-bold text-slate-500 mb-2 ml-1">AOS (현재 술 용량)</label>
+                <div class="flex gap-2">
+                    <input type="number" id="aos" class="block w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 focus:bg-white outline-none transition-all text-lg font-bold" placeholder="1000">
+                    <select id="unit" class="px-3 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 outline-none font-bold text-slate-600">
+                        <option value="ml">ml</option>
+                        <option value="L">L</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-2 ml-1">ACS (현재 도수 %)</label>
+                    <input type="number" id="acs" class="block w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 focus:bg-white outline-none transition-all text-lg font-bold text-indigo-600" placeholder="40">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-2 ml-1">DAC (목표 도수 %)</label>
+                    <input type="number" id="dac" class="block w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 focus:bg-white outline-none transition-all text-lg font-bold text-rose-500" placeholder="13">
+                </div>
+            </div>
+            
+            <button onclick="calculateAndSave()" class="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-[0.98] mt-4 text-lg">
+                계산 및 기록하기
+            </button>
+        </div>
+
+        <div id="result" class="mt-8 hidden animate-bounce-short">
+            <div class="bg-indigo-900 p-6 rounded-3xl text-white shadow-xl relative overflow-hidden">
+                <div class="relative z-10">
+                    <p class="text-indigo-300 text-xs font-bold mb-1">AWA (추가할 물의 양)</p>
+                    <div class="flex items-baseline gap-2">
+                        <span id="awa" class="text-5xl font-black italic">0</span>
+                        <span id="resUnit" class="text-xl font-bold opacity-70">ml</span>
+                    </div>
+                    <button onclick="shareResult()" class="mt-4 w-full py-2 bg-indigo-800 rounded-xl text-xs font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
+                        <span>📤</span> 결과 카톡/문자 공유
+                    </button>
+                </div>
+                <div class="absolute -right-4 -bottom-4 text-8xl opacity-10">💧</div>
+            </div>
+        </div>
+
+        <div class="mt-10 mb-2">
+            <div class="flex justify-between items-center mb-4 px-1">
+                <h3 class="font-black text-slate-800 flex items-center gap-2">
+                    <span class="w-1 h-4 bg-indigo-500 rounded-full"></span> 작업 기록
+                </h3>
+                <button onclick="clearHistory()" class="text-[10px] font-bold text-slate-400 hover:text-rose-500 uppercase tracking-tighter">Clear All</button>
+            </div>
+            <div class="space-y-3 max-h-60 overflow-y-auto custom-scrollbar pr-1" id="historyList">
+                </div>
+        </div>
+    </div>
+
+    <div class="w-full max-w-md pb-6 flex flex-col items-center text-center">
+        <p class="text-xs text-slate-400 mb-2 font-medium">Developed by</p>
+        <img src="https://i.imgur.com/gHhDkU8.png" alt="알피지랩 CI" class="h-6">
+    </div>
+
+    <script>
+        window.onload = renderHistory;
+        let lastResult = null;
+
+        function calculateAndSave() {
+            const aos = parseFloat(document.getElementById('aos').value);
+            const unit = document.getElementById('unit').value;
+            const acs = parseFloat(document.getElementById('acs').value);
+            const dac = parseFloat(document.getElementById('dac').value);
+            
+            if (!aos || !acs || !dac || dac >= acs) {
+                alert("입력값을 확인해주세요! (목표 도수는 현재보다 낮아야 합니다)");
+                return;
+            }
+
+            // 시트 공식 적용: (ACS - DAC) * AOS / DAC
+            const awa = ((acs - dac) * aos) / dac;
+            
+            document.getElementById('awa').innerText = awa.toLocaleString(undefined, {maximumFractionDigits: 2});
+            document.getElementById('resUnit').innerText = unit;
+            document.getElementById('result').classList.remove('hidden');
+
+            const workName = prompt("이 작업의 이름을 입력하세요:", "가수 작업 " + (new Date().getMonth()+1) + "/" + new Date().getDate());
+            if (!workName) return;
+
+            const record = {
+                id: Date.now(),
+                name: workName,
+                time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                details: `${aos}${unit} (${acs}%) → ${dac}%`,
+                awa: awa.toLocaleString(undefined, {maximumFractionDigits: 1}) + unit
+            };
+            
+            lastResult = record;
+            let history = JSON.parse(localStorage.getItem('acct_history') || '[]');
+            history.unshift(record);
+            localStorage.setItem('acct_history', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('historyList');
+            const history = JSON.parse(localStorage.getItem('acct_history') || '[]');
+            if (history.length === 0) {
+                list.innerHTML = '<p class="text-center py-10 text-slate-300 text-sm font-medium">기록이 비어있습니다</p>';
+                return;
+            }
+            list.innerHTML = history.map(h => `
+                <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 transition-all hover:border-indigo-200">
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="font-bold text-slate-800 text-sm">${h.name}</span>
+                        <span class="text-[10px] text-slate-400 font-medium">${h.time}</span>
+                    </div>
+                    <div class="text-[11px] text-slate-500 mb-2">${h.details}</div>
+                    <div class="text-indigo-600 font-black text-sm">💧 투입: ${h.awa}</div>
+                </div>
+            `).join('');
+        }
+
+        function clearHistory() {
+            if(confirm("기록을 모두 지울까요?")) {
+                localStorage.removeItem('acct_history');
+                renderHistory();
+            }
+        }
+
+        function shareResult() {
+            if (!lastResult) return;
+            const text = `[SUL KIT 가수 보고서]\n작업명: ${lastResult.name}\n설정: ${lastResult.details}\n▶ 투입 물: ${lastResult.awa}`;
+            if (navigator.share) {
+                navigator.share({ title: '양조 결과', text: text });
+            } else {
+                alert("결과가 복사되었습니다:\n" + text);
+            }
+        }
+    </script>
+</body>
